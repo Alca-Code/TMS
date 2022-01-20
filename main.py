@@ -29,6 +29,7 @@ from aiogram import Bot, types
 from aiogram.utils import executor
 from aiogram.dispatcher import Dispatcher
 from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.exceptions import BotBlocked
 import asyncio
 #################################################################################################################################
 
@@ -43,6 +44,8 @@ from aiogram.dispatcher.filters.state import StatesGroup, State        ## ТО, 
 import config        ## ИМПОРТИРУЕМ ДАННЫЕ ИЗ ФАЙЛОВ config.py
 import keyboard        ## ИМПОРТИРУЕМ ДАННЫЕ ИЗ ФАЙЛОВ keyboard.py
 import text          ## ИМПОРТИРУЕМ ДАННЫЕ ИЗ ФАЙЛОВ text.py
+import making_json        ## ИМПОРТИРУЕМ ДАННЫЕ ИЗ ФАЙЛОВ making_json.py
+import states           ##  ИМПОРТИРУЕМ ДАННЫЕ ИЗ ФАЙЛОВ states.py
 ######################
 
 import logging # ПРОСТО ВЫВОДИТ В КОНСОЛЬ ИНФОРМАЦИЮ, КОГДА БОТ ЗАПУСТИТСЯ
@@ -56,7 +59,7 @@ logging.basicConfig(format=u'%(filename)s [LINE:%(lineno)d] #%(levelname)-8s [%(
                     )
 
 
-@dp.message_handler(Command("start"), state=None)
+@dp.message_handler(Command("start"), state='*')
 
 async def welcome(message):
     joinedFile = open("user.txt","r")
@@ -69,7 +72,7 @@ async def welcome(message):
         joinedFile.write(str(message.chat.id)+ "\n")
         joinedUsers.add(message.chat.id)
 
-    await bot.send_message(message.chat.id, f"ПРИВЕТ, *{message.from_user.first_name},* БОТ РАБОТАЕТ {text.hello_message} ", reply_markup=keyboard.start, parse_mode='Markdown')
+    await bot.send_message(message.chat.id, f"ПРИВЕТ, *{message.from_user.first_name},* БОТ РАБОТАЕТ", reply_markup=keyboard.start, parse_mode='Markdown')
 
 @dp.message_handler(content_types=['text'])
 async def get_message(message):
@@ -82,7 +85,19 @@ async def get_message(message):
 
 
     if message.text == text.search_button:
-        await bot.send_message(message.chat.id, text = text.about_search__button, reply_markup=keyboard.search, parse_mode='Markdown')
+        await bot.send_message(message.chat.id, text = text.about_search__button, reply_markup=keyboard.search_item, parse_mode='Markdown')
+        await states.User.Entering_link.set()
+
+@dp.message_handler(state=states.User.Entering_link)
+async def checking_site(message: types.Message, state: FSMContext):
+   
+        await bot.send_message(message.from_user.id, text.start_search, reply_markup=keyboard.cancel_buttons,
+                               parse_mode="Markdown")
+
+        ans = await making_json.client_start(message.text)
+        await bot.send_message(message.from_user.id, text.search_issue,
+                                reply_markup=keyboard.cancel_buttons, parse_mode="Markdown")
+        await bot.send_message(message.from_user.id, ans, reply_markup=keyboard.cancel_buttons, parse_mode="Markdown")
 
 
 @dp.callback_query_handler(text_contains='join') # МЫ ПРОПИСЫВАЛИ В КНОПКАХ КАЛЛБЭК "JOIN" ЗНАЧИТ И ТУТ МЫ ЛОВИМ "JOIN"
@@ -94,10 +109,14 @@ async def join(call: types.CallbackQuery):
         await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text = "У тебя нет админки\n Куда ты полез", parse_mode='Markdown')
 
 
+ 
+    
 
 @dp.callback_query_handler(text_contains='cancle') # МЫ ПРОПИСЫВАЛИ В КНОПКАХ КАЛЛБЭК "cancle" ЗНАЧИТ И ТУТ МЫ ЛОВИМ "cancle"
 async def cancle(call: types.CallbackQuery):
     await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text= "Ты вернулся В главное меню. Жми опять кнопки", parse_mode='Markdown')
+
+
 
 ##############################################################
 if __name__ == '__main__':
@@ -106,6 +125,21 @@ executor.start_polling(dp)
 ##############################################################
 
 
+# @dp.errors_handler(exception=BotBlocked)
+# async def error_bot_blocked(update: types.Update, exception: BotBlocked):
+#     # Update: объект события от Telegram. Exception: объект исключения
+#     # Здесь можно как-то обработать блокировку, например, удалить пользователя из БД
+#     print(f"Меня заблокировал пользователь!\nСообщение: {update}\nОшибка: {exception}")
+
+#     # Такой хэндлер должен всегда возвращать True,
+#     # если дальнейшая обработка не требуется.
+#     return True
+
+# # Команда не существует
+# @dp.message_handler(state="*")
+# async def wrong_command(message: types.Message):
+#     await bot.send_message(message.from_user.id, text.wrong_command_text,
+#                            parse_mode="Markdown")
 
 
 

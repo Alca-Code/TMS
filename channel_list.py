@@ -1,1 +1,1 @@
-channel_list = ["https://t.me/breakingmash",'https://t.me/moscowach','https://t.me/thecodemedia',]
+channel_list = ["https://t.me/womenonlymoscow", "https://t.me/sayyesstoree_catalogue", "https://t.me/sense_of_luxury1"]

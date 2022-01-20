@@ -3,7 +3,7 @@ import json
 import channel_list
 import parsingPage
 import find_items
-
+import asyncio
 
 from telethon.sync import TelegramClient
 from telethon import connection
@@ -28,7 +28,7 @@ api_hash = config['Telegram']['api_hash']
 username = config['Telegram']['username']
 
 client = TelegramClient(username, api_id, api_hash)
-
+client.start()
 
 
 async def dump_all_messages(channel):
@@ -78,13 +78,15 @@ async def main(url):
 
 async def client_start(item):
 
-	
-	client.start()
+	posts = []
 	for url in channel_list.channel_list:
-		with client:
-			client.loop.run_until_complete(main(url))
+		async with client:
+			client.loop.run_until_complete(await main(url))
 			
-		with open("channel_messages.json", "r", encoding='utf-8') as read_file:
+		async with open("channel_messages.json", "r", encoding='utf-8') as read_file:
 				data = json.load(read_file)
-		posts = parsingPage.making_list(data, url)
+		posts += find_items.find_item(parsingPage.making_list("channel_messages.json",url),item)
 
+	return posts
+	
+print(client_start('Dior'))

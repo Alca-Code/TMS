@@ -14,6 +14,7 @@ def making_list(file,channel_link):
         url = f'{channel_link}/{i.get(tag_id)}'
         posts.append(message)
         posts.append(url)
+    posts = list(filter(None, posts))
     return  posts
 
 
