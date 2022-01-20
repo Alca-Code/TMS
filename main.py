@@ -1,86 +1,201 @@
-import configparser
-import json
-import parsingPage
+# # import asyncio
+# import aiogram
+# import link
+# from aiogram import Bot, Dispatcher, executor, types
+# from aiogram.contrib.fsm_storage.memory import MemoryStorage
+# from aiogram.dispatcher import FSMContext
+# import config
+# import states
+# import text
+# import keyboards
+# import making_json
+# import parsingPage
+# bot = Bot(config.Token)
+# dp = Dispatcher(bot, storage=MemoryStorage())
+
+# # Начало работы приветствие
+# @dp.message_handler(commands=['start'], state='*')
+# async def start_message(message: types.Message, state: FSMContext):
+#     await bot.send_message(message.from_user.id, text.hello_message,
+#                            reply_markup=keyboards.keyboard,
+#                            parse_mode="Markdown")
+#     # await bot.send_message(message.from_user.id, text.adding_massage)
+#     # await bot.send_message(message.from_user.id, text.enter_link_message)
+#     await states.User.Started_chat.set()
+
+# -*- coding: utf8 -*-
+################################################################################################################################
+from aiogram import Bot, types
+from aiogram.utils import executor
+from aiogram.dispatcher import Dispatcher
+from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+import asyncio
+#################################################################################################################################
+
+######################################################################
+from aiogram.dispatcher import FSMContext                            ## ТО, ЧЕГО ВЫ ЖДАЛИ - FSM
+from aiogram.dispatcher.filters import Command                        ## ТО, ЧЕГО ВЫ ЖДАЛИ - FSM
+from aiogram.contrib.fsm_storage.memory import MemoryStorage        ## ТО, ЧЕГО ВЫ ЖДАЛИ - FSM
+from aiogram.dispatcher.filters.state import StatesGroup, State        ## ТО, ЧЕГО ВЫ ЖДАЛИ - FSM
+######################################################################
+
+######################
+import config        ## ИМПОРТИРУЕМ ДАННЫЕ ИЗ ФАЙЛОВ config.py
+import keyboard        ## ИМПОРТИРУЕМ ДАННЫЕ ИЗ ФАЙЛОВ keyboard.py
+import text          ## ИМПОРТИРУЕМ ДАННЫЕ ИЗ ФАЙЛОВ text.py
+######################
+
+import logging # ПРОСТО ВЫВОДИТ В КОНСОЛЬ ИНФОРМАЦИЮ, КОГДА БОТ ЗАПУСТИТСЯ
+
+storage = MemoryStorage() # FOR FSM
+bot = Bot(token=config.botkey, parse_mode=types.ParseMode.HTML)
+dp = Dispatcher(bot, storage=storage)
+
+logging.basicConfig(format=u'%(filename)s [LINE:%(lineno)d] #%(levelname)-8s [%(asctime)s]  %(message)s',
+                    level=logging.INFO,
+                    )
 
 
-from telethon.sync import TelegramClient
-from telethon import connection
+@dp.message_handler(Command("start"), state=None)
 
-# для корректного переноса времени сообщений в json
-from datetime import date, datetime
+async def welcome(message):
+    joinedFile = open("user.txt","r")
+    joinedUsers = set ()
+    for line in joinedFile:
+        joinedUsers.add(line.strip())
 
-# классы для работы с каналами
-from telethon.tl.functions.channels import GetParticipantsRequest
-from telethon.tl.types import ChannelParticipantsSearch
+    if not str(message.chat.id) in joinedUsers:
+        joinedFile = open("user.txt","a")
+        joinedFile.write(str(message.chat.id)+ "\n")
+        joinedUsers.add(message.chat.id)
 
-# класс для работы с сообщениями
-from telethon.tl.functions.messages import GetHistoryRequest
+    await bot.send_message(message.chat.id, f"ПРИВЕТ, *{message.from_user.first_name},* БОТ РАБОТАЕТ {text.hello_message} ", reply_markup=keyboard.start, parse_mode='Markdown')
 
-# Считываем учетные данные
-config = configparser.ConfigParser()
-config.read("config.ini")
-
-# Присваиваем значения внутренним переменным
-api_id   = config['Telegram']['api_id']
-api_hash = config['Telegram']['api_hash']
-username = config['Telegram']['username']
+@dp.message_handler(content_types=['text'])
+async def get_message(message):
+    if message.text == "Информация":
+        await bot.send_message(message.chat.id, text = "Информация\nБот создан специально для моих любимых девочек и мальчиков с lzt ", parse_mode='Markdown')
 
 
-
-client = TelegramClient(username, api_id, api_hash)
-
-client.start()
+    if message.text == "Статистика":
+        await bot.send_message(message.chat.id, text = "Хочешь просмотреть статистику бота?", reply_markup=keyboard.stats, parse_mode='Markdown')
 
 
-
-async def dump_all_messages(channel):
-	"""Записывает json-файл с информацией о всех сообщениях канала/чата"""
-	offset_msg = 0    # номер записи, с которой начинается считывание
-	limit_msg = 100   # максимальное число записей, передаваемых за один раз
-
-	all_messages = []   # список всех сообщений
-	total_messages = 0
-	total_count_limit = 0  # поменяйте это значение, если вам нужны не все сообщения
-
-	class DateTimeEncoder(json.JSONEncoder):
-		'''Класс для сериализации записи дат в JSON'''
-		def default(self, o):
-			if isinstance(o, datetime):
-				return o.isoformat()
-			if isinstance(o, bytes):
-				return list(o)
-			return json.JSONEncoder.default(self, o)
-
-	while True:
-		history = await client(GetHistoryRequest(
-			peer=channel,
-			offset_id=offset_msg,
-			offset_date=None, add_offset=0,
-			limit=limit_msg, max_id=0, min_id=0,
-			hash=0))
-		if not history.messages:
-			break
-		messages = history.messages
-		for message in messages:
-			all_messages.append(message.to_dict())
-		offset_msg = messages[len(messages) - 1].id
-		total_messages = len(all_messages)
-		if total_count_limit != 0 and total_messages >= total_count_limit:
-			break
-
-	with open('channel_messages.json', 'w', encoding='utf8') as outfile:
-		 json.dump(all_messages, outfile, ensure_ascii=False, cls=DateTimeEncoder)
+    if message.text == text.search_button:
+        await bot.send_message(message.chat.id, text = text.about_search__button, reply_markup=keyboard.search, parse_mode='Markdown')
 
 
-async def main():
-	url = input("Введите ссылку на канал или чат: ")
-	channel = await client.get_entity(url)
-	await dump_all_messages(channel)
+@dp.callback_query_handler(text_contains='join') # МЫ ПРОПИСЫВАЛИ В КНОПКАХ КАЛЛБЭК "JOIN" ЗНАЧИТ И ТУТ МЫ ЛОВИМ "JOIN"
+async def join(call: types.CallbackQuery):
+    if call.message.chat.id == config.admin:
+        d = sum(1 for line in open('user.txt'))
+        await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'Вот статистика бота: *{d}* человек', parse_mode='Markdown')
+    else:
+        await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text = "У тебя нет админки\n Куда ты полез", parse_mode='Markdown')
 
 
-with client:
-	client.loop.run_until_complete(main())
 
-with open("channel_messages.json", "r") as read_file:
-    data = json.load(read_file)
-print(data)
+@dp.callback_query_handler(text_contains='cancle') # МЫ ПРОПИСЫВАЛИ В КНОПКАХ КАЛЛБЭК "cancle" ЗНАЧИТ И ТУТ МЫ ЛОВИМ "cancle"
+async def cancle(call: types.CallbackQuery):
+    await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text= "Ты вернулся В главное меню. Жми опять кнопки", parse_mode='Markdown')
+
+##############################################################
+if __name__ == '__main__':
+    print('Бот в сети!')                                    # ЧТОБЫ БОТ РАБОТАЛ ВСЕГДА с выводом в начале вашего любого текста
+executor.start_polling(dp)
+##############################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# storage = MemoryStorage() # FOR FSM
+# bot = Bot(token=config.botkey, parse_mode=types.ParseMode.HTML)
+# dp = Dispatcher(bot, storage=storage)
+
+# logging.basicConfig(format=u'%(filename)s [LINE:%(lineno)d] #%(levelname)-8s [%(asctime)s]  %(message)s',
+#                     level=logging.INFO,
+#                     )
+
+# @dp.message_handler(Command("start"), state=None)
+
+# async def welcome(message):
+#     joinedFile = open("user.txt","r")
+#     joinedUsers = set ()
+#     for line in joinedFile:
+#         joinedUsers.add(line.strip())
+
+#     if not str(message.chat.id) in joinedUsers:
+#         joinedFile = open("user.txt","a")
+#         joinedFile.write(str(message.chat.id)+ "\n")
+#         joinedUsers.add(message.chat.id)
+
+#     await bot.send_message(message.chat.id, f"ПРИВЕТ, *{message.from_user.first_name},* БОТ РАБОТАЕТ.{text.hello_message} ", reply_markup=keyboards.start, parse_mode='Markdown')
+
+
+# @dp.message_handler(content_types=['text'])
+# async def get_message(message):
+#     if message.text == "Информация":
+#         await bot.send_message(message.chat.id, text = "Информация\n Я студентческий бот проекта Trade Mark Security. Меня только создали, но я уже немного умею ", parse_mode='Markdown')
+#     if message.text == "Статистика":
+#         await bot.send_message(message.chat.id, text = "Хочешь просмотреть статистику бота?", reply_markup=keyboards.stats, parse_mode='Markdown')
+#     # if message.text == text.search_button:
+#     #     await bot.send_message(message.chat.id, text = text.about_search__button, reply_markup=keyboards.stats, parse_mode = "Markdown" )
+
+# @dp.callback_query_handler(text_contains='join') # МЫ ПРОПИСЫВАЛИ В КНОПКАХ КАЛЛБЭК "JOIN" ЗНАЧИТ И ТУТ МЫ ЛОВИМ "JOIN"
+# async def join(call: types.CallbackQuery):
+#     if call.message.chat.id == config.admin:
+#         d = sum(1 for line in open('user.txt'))
+#         await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'Вот статистика бота: *{d}* человек', parse_mode='Markdown')
+#     else:
+#         await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text = "У тебя нет админки\n Куда ты полез", parse_mode='Markdown')
+
+
+
+# @dp.callback_query_handler(text_contains='cancle') # МЫ ПРОПИСЫВАЛИ В КНОПКАХ КАЛЛБЭК "cancle" ЗНАЧИТ И ТУТ МЫ ЛОВИМ "cancle"
+# async def cancle(call: types.CallbackQuery):
+#     await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text= "Ты вернулся В главное меню. Жми опять кнопки", parse_mode='Markdown')
+
+# @dp.message_handler(state="*")
+# async def wrong_command(message: types.Message, state: FSMContext):
+#     await bot.send_message(message.from_user.id, text.wrong_command_text,
+#                            parse_mode="Markdown")
+
+
+
+# ##############################################################
+# if __name__ == '__main__':
+#     print('Бот в сети!')                                    # ЧТОБЫ БОТ РАБОТАЛ ВСЕГДА с выводом в начале вашего любого текста
+# executor.start_polling(dp)
+# ##############################################################
+
