@@ -1,30 +1,6 @@
-# # import asyncio
-# import aiogram
-# import link
-# from aiogram import Bot, Dispatcher, executor, types
-# from aiogram.contrib.fsm_storage.memory import MemoryStorage
-# from aiogram.dispatcher import FSMContext
-# import config
-# import states
-# import text
-# import keyboards
-# import making_json
-# import parsingPage
-# bot = Bot(config.Token)
-# dp = Dispatcher(bot, storage=MemoryStorage())
-
-# # Начало работы приветствие
-# @dp.message_handler(commands=['start'], state='*')
-# async def start_message(message: types.Message, state: FSMContext):
-#     await bot.send_message(message.from_user.id, text.hello_message,
-#                            reply_markup=keyboards.keyboard,
-#                            parse_mode="Markdown")
-#     # await bot.send_message(message.from_user.id, text.adding_massage)
-#     # await bot.send_message(message.from_user.id, text.enter_link_message)
-#     await states.User.Started_chat.set()
-
 # -*- coding: utf8 -*-
 ################################################################################################################################
+import aiogram
 from aiogram import Bot, types
 from aiogram.utils import executor
 from aiogram.dispatcher import Dispatcher
@@ -50,6 +26,7 @@ import states           ##  ИМПОРТИРУЕМ ДАННЫЕ ИЗ ФАЙЛО�
 
 import logging # ПРОСТО ВЫВОДИТ В КОНСОЛЬ ИНФОРМАЦИЮ, КОГДА БОТ ЗАПУСТИТСЯ
 
+
 storage = MemoryStorage() # FOR FSM
 bot = Bot(token=config.botkey, parse_mode=types.ParseMode.HTML)
 dp = Dispatcher(bot, storage=storage)
@@ -59,9 +36,9 @@ logging.basicConfig(format=u'%(filename)s [LINE:%(lineno)d] #%(levelname)-8s [%(
                     )
 
 
-@dp.message_handler(Command("start"), state='*')
-
-async def welcome(message):
+# Открытие бота
+@dp.message_handler(commands=['start'], state='*')
+async def start_message(message: types.Message, state: FSMContext):
     joinedFile = open("user.txt","r")
     joinedUsers = set ()
     for line in joinedFile:
@@ -71,165 +48,101 @@ async def welcome(message):
         joinedFile = open("user.txt","a")
         joinedFile.write(str(message.chat.id)+ "\n")
         joinedUsers.add(message.chat.id)
-
-    await bot.send_message(message.chat.id, f"ПРИВЕТ, *{message.from_user.first_name},* БОТ РАБОТАЕТ", reply_markup=keyboard.start, parse_mode='Markdown')
-
-@dp.message_handler(content_types=['text'])
-async def get_message(message):
-    if message.text == "Информация":
-        await bot.send_message(message.chat.id, text = "Информация\nБот создан специально для моих любимых девочек и мальчиков с lzt ", parse_mode='Markdown')
-
-
-    if message.text == "Статистика":
-        await bot.send_message(message.chat.id, text = "Хочешь просмотреть статистику бота?", reply_markup=keyboard.stats, parse_mode='Markdown')
+        # await bot.send_message(message.from_user.id, text.adding_massage)
+    # await bot.send_message(message.from_user.id, text.enter_link_message)
+    await bot.send_message(message.chat.id, text = text.hello_messages)
+    await bot.send_message(message.chat.id, text = text.privacy, reply_markup=keyboard.privacy_buttons, parse_mode='Markdown')
+    privacy_doc = open('./docs/User_Agreement.docx', 'rb')
+    await bot.send_document(chat_id=message.chat.id, document=privacy_doc)
+    await states.User.Privacy.set()
 
 
-    if message.text == text.search_button:
-        await bot.send_message(message.chat.id, text = text.about_search__button, reply_markup=keyboard.search_item, parse_mode='Markdown')
-        await states.User.Entering_link.set()
+@dp.message_handler(text = 'Да', state = states.User.Privacy) # МЫ ПРОПИСЫВАЛИ В КНОПКАХ КАЛЛБЭК "JOIN" ЗНАЧИТ И ТУТ МЫ ЛОВИМ "JOIN"
+async def join(message: types.Message, state: FSMContext):
+    await bot.send_message(message.chat.id, text = text.menu_text, reply_markup=keyboard.keyboard, parse_mode='Markdown')
+    await states.User.Started_chat.set()
 
-@dp.message_handler(state=states.User.Entering_link)
+@dp.message_handler(text = 'Нет', state = states.User.Privacy)# МЫ ПРОПИСЫВАЛИ В КНОПКАХ КАЛЛБЭК "cancle" ЗНАЧИТ И ТУТ МЫ ЛОВИМ "cancle"
+async def cancel(message: types.Message, state: FSMContext):
+    await bot.send_message(message.chat.id, text= text.privacy_disagree, reply_markup=keyboard.privacy_buttons, parse_mode='Markdown')
+    meme = open('./images/bye-im-out.gif', 'rb')
+    await bot.send_animation(chat_id=message.chat.id,animation=meme)
+    
+
+# Ввод слова для поиска
+@dp.message_handler(text=text.search_button, state=states.User.Started_chat)
+async def search_button(message: types.Message, state: FSMContext):
+        await bot.send_message(message.chat.id, text = text.about_search__button, reply_markup=keyboard.cancel_buttons, parse_mode='Markdown')
+        await states.User.Search.set()
+
+
+# Отмена ввода слова для поиска
+@dp.message_handler(state=states.User.Search, text=text.cancel_button_text)
+async def entering_link_cancel(message: types.Message, state: FSMContext):
+    await bot.send_message(message.from_user.id, text.cancel_massage, reply_markup=keyboard.keyboard,
+                           parse_mode="Markdown")
+    await states.User.Started_chat.set()
+
+
+# Информация о боте.
+@dp.message_handler(state=states.User.Started_chat, text=text.about_bot_button_text)
+async def about_bot_massage(message: types.Message, state: FSMContext):
+    await bot.send_message(message.from_user.id, text.bot_info, reply_markup=keyboard.keyboard,
+                           parse_mode="Markdown")
+    await states.User.Started_chat.set()
+
+
+#Запуск алгоритма поиска
+@dp.message_handler(state=states.User.Search)
 async def checking_site(message: types.Message, state: FSMContext):
    
         await bot.send_message(message.from_user.id, text.start_search, reply_markup=keyboard.cancel_buttons,
                                parse_mode="Markdown")
 
-        ans = await making_json.client_start(message.text)
+        ans = making_json.search_engine(making_json.a ,message.text)
         await bot.send_message(message.from_user.id, text.search_issue,
                                 reply_markup=keyboard.cancel_buttons, parse_mode="Markdown")
-        await bot.send_message(message.from_user.id, ans, reply_markup=keyboard.cancel_buttons, parse_mode="Markdown")
+        await bot.send_message(message.from_user.id, ans, reply_markup=keyboard.keyboard, parse_mode="Markdown")
+        await states.User.Started_chat.set()
+# Бот ошибся
+@dp.message_handler(state=states.User.Started_chat, text=text.mistake_button)
+async def bot_mistake(message: types.Message, state: FSMContext):
+    await bot.send_message(message.from_user.id, text.about_mistake, reply_markup=keyboard.cancel_buttons,
+                           parse_mode="Markdown")
+    await states.User.Entering_bot_mistake.set()
 
+# Отправка ошибки бота
+@dp.message_handler(state=states.User.Entering_bot_mistake)
+async def bot_mistake_entered(message: types.Message, state: FSMContext):
+    await bot.send_message(message.from_user.id, text = text.sending_mistake, reply_markup=keyboard.cancel_buttons,
+                           parse_mode="Markdown")
+    await bot.send_message(246880643, "Сообщение модератору: " + message.text, reply_markup=keyboard.cancel_buttons,
+                           parse_mode="Markdown")
+    await states.User.Before_back.set()
 
-@dp.callback_query_handler(text_contains='join') # МЫ ПРОПИСЫВАЛИ В КНОПКАХ КАЛЛБЭК "JOIN" ЗНАЧИТ И ТУТ МЫ ЛОВИМ "JOIN"
-async def join(call: types.CallbackQuery):
-    if call.message.chat.id == config.admin:
-        d = sum(1 for line in open('user.txt'))
-        await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'Вот статистика бота: *{d}* человек', parse_mode='Markdown')
-    else:
-        await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text = "У тебя нет админки\n Куда ты полез", parse_mode='Markdown')
+ #Ввод не существующей команды
+@dp.message_handler(state="*")
+async def wrong_command(message: types.Message, state: FSMContext):
+    await bot.send_message(message.from_user.id, text.wrong_command_text, reply_markup=keyboard.keyboard,
+                           parse_mode="Markdown")
+    await states.User.Started_chat.set()
 
-
- 
+#Кнопка Назад
+@dp.message_handler(state="*", text=text.cancel_button_text)
+async def bot_mistake_cancel(message: types.Message, state: FSMContext):
+    await bot.send_message(message.from_user.id, "Назад", reply_markup=keyboard.keyboard,
+                           parse_mode="Markdown")
+    await states.User.Started_chat.set()
     
 
-@dp.callback_query_handler(text_contains='cancle') # МЫ ПРОПИСЫВАЛИ В КНОПКАХ КАЛЛБЭК "cancle" ЗНАЧИТ И ТУТ МЫ ЛОВИМ "cancle"
-async def cancle(call: types.CallbackQuery):
-    await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text= "Ты вернулся В главное меню. Жми опять кнопки", parse_mode='Markdown')
+
 
 
 
 ##############################################################
 if __name__ == '__main__':
     print('Бот в сети!')                                    # ЧТОБЫ БОТ РАБОТАЛ ВСЕГДА с выводом в начале вашего любого текста
-executor.start_polling(dp)
+executor.start_polling(dp, skip_updates=True)
 ##############################################################
 
-
-# @dp.errors_handler(exception=BotBlocked)
-# async def error_bot_blocked(update: types.Update, exception: BotBlocked):
-#     # Update: объект события от Telegram. Exception: объект исключения
-#     # Здесь можно как-то обработать блокировку, например, удалить пользователя из БД
-#     print(f"Меня заблокировал пользователь!\nСообщение: {update}\nОшибка: {exception}")
-
-#     # Такой хэндлер должен всегда возвращать True,
-#     # если дальнейшая обработка не требуется.
-#     return True
-
-# # Команда не существует
-# @dp.message_handler(state="*")
-# async def wrong_command(message: types.Message):
-#     await bot.send_message(message.from_user.id, text.wrong_command_text,
-#                            parse_mode="Markdown")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# storage = MemoryStorage() # FOR FSM
-# bot = Bot(token=config.botkey, parse_mode=types.ParseMode.HTML)
-# dp = Dispatcher(bot, storage=storage)
-
-# logging.basicConfig(format=u'%(filename)s [LINE:%(lineno)d] #%(levelname)-8s [%(asctime)s]  %(message)s',
-#                     level=logging.INFO,
-#                     )
-
-# @dp.message_handler(Command("start"), state=None)
-
-# async def welcome(message):
-#     joinedFile = open("user.txt","r")
-#     joinedUsers = set ()
-#     for line in joinedFile:
-#         joinedUsers.add(line.strip())
-
-#     if not str(message.chat.id) in joinedUsers:
-#         joinedFile = open("user.txt","a")
-#         joinedFile.write(str(message.chat.id)+ "\n")
-#         joinedUsers.add(message.chat.id)
-
-#     await bot.send_message(message.chat.id, f"ПРИВЕТ, *{message.from_user.first_name},* БОТ РАБОТАЕТ.{text.hello_message} ", reply_markup=keyboards.start, parse_mode='Markdown')
-
-
-# @dp.message_handler(content_types=['text'])
-# async def get_message(message):
-#     if message.text == "Информация":
-#         await bot.send_message(message.chat.id, text = "Информация\n Я студентческий бот проекта Trade Mark Security. Меня только создали, но я уже немного умею ", parse_mode='Markdown')
-#     if message.text == "Статистика":
-#         await bot.send_message(message.chat.id, text = "Хочешь просмотреть статистику бота?", reply_markup=keyboards.stats, parse_mode='Markdown')
-#     # if message.text == text.search_button:
-#     #     await bot.send_message(message.chat.id, text = text.about_search__button, reply_markup=keyboards.stats, parse_mode = "Markdown" )
-
-# @dp.callback_query_handler(text_contains='join') # МЫ ПРОПИСЫВАЛИ В КНОПКАХ КАЛЛБЭК "JOIN" ЗНАЧИТ И ТУТ МЫ ЛОВИМ "JOIN"
-# async def join(call: types.CallbackQuery):
-#     if call.message.chat.id == config.admin:
-#         d = sum(1 for line in open('user.txt'))
-#         await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f'Вот статистика бота: *{d}* человек', parse_mode='Markdown')
-#     else:
-#         await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text = "У тебя нет админки\n Куда ты полез", parse_mode='Markdown')
-
-
-
-# @dp.callback_query_handler(text_contains='cancle') # МЫ ПРОПИСЫВАЛИ В КНОПКАХ КАЛЛБЭК "cancle" ЗНАЧИТ И ТУТ МЫ ЛОВИМ "cancle"
-# async def cancle(call: types.CallbackQuery):
-#     await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text= "Ты вернулся В главное меню. Жми опять кнопки", parse_mode='Markdown')
-
-# @dp.message_handler(state="*")
-# async def wrong_command(message: types.Message, state: FSMContext):
-#     await bot.send_message(message.from_user.id, text.wrong_command_text,
-#                            parse_mode="Markdown")
-
-
-
-# ##############################################################
-# if __name__ == '__main__':
-#     print('Бот в сети!')                                    # ЧТОБЫ БОТ РАБОТАЛ ВСЕГДА с выводом в начале вашего любого текста
-# executor.start_polling(dp)
-# ##############################################################
 

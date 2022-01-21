@@ -1,10 +1,11 @@
 import configparser
 import json
+from re import search
 import channel_list
 import parsingPage
 import find_items
 import asyncio
-
+import text
 from telethon.sync import TelegramClient
 from telethon import connection
 
@@ -31,7 +32,7 @@ client = TelegramClient(username, api_id, api_hash)
 client.start()
 
 
-async def dump_all_messages(channel):
+def dump_all_messages(channel):
 	"""Записывает json-файл с информацией о всех сообщениях канала/чата"""
 	offset_msg = 0    # номер записи, с которой начинается считывание
 	limit_msg = 100   # максимальное число записей, передаваемых за один раз
@@ -50,7 +51,7 @@ async def dump_all_messages(channel):
 			return json.JSONEncoder.default(self, o)
 
 	while True:
-		history = await client(GetHistoryRequest(
+		history = client(GetHistoryRequest(
 			peer=channel,
 			offset_id=offset_msg,
 			offset_date=None, add_offset=0,
@@ -70,23 +71,48 @@ async def dump_all_messages(channel):
 		 json.dump(all_messages, outfile, ensure_ascii=False, cls=DateTimeEncoder)
 
 
-async def main(url):
-	# url = input("Введите ссылку на канал или чат: ")
-	channel = await client.get_entity(url)
-	await dump_all_messages(channel)
+# def main(url):
+# 	# url = input("Введите ссылку на канал или чат: ")
+# 	channel = client.get_entity(url)
+# 	dump_all_messages(channel)
 
 
-async def client_start(item):
+# def client_start(item):
 
-	posts = []
+# 	posts = []
+# 	for url in channel_list.channel_list:
+# 		try:
+# 			channel = client.get_entity(url)
+# 			dump_all_messages(channel)
+# 			posts += find_items.find_item(parsingPage.making_list("channel_messages.json",url),item)
+# 		except:
+# 			pass
+
+# 	return posts
+def making_big_list():
+	all_posts =[]
+	num_post = 0
+	num_eror = 0
 	for url in channel_list.channel_list:
-		async with client:
-			client.loop.run_until_complete(await main(url))
-			
-		async with open("channel_messages.json", "r", encoding='utf-8') as read_file:
-				data = json.load(read_file)
-		posts += find_items.find_item(parsingPage.making_list("channel_messages.json",url),item)
+		try:
+			dump_all_messages(url)
+			all_posts += parsingPage.making_list("channel_messages.json",url)
+			num_post += 1
+		except:
+			num_eror += 1
+			pass
+	print(f'Спарсил {num_post} каналов. Поймал ошибок: {num_eror}')
+	return all_posts
 
-	return posts
 	
-print(client_start('Dior'))
+def search_engine(file,item):
+	posts = []
+	posts += find_items.find_item(file,item)
+	if posts:
+		return posts
+	else:
+		return(text.nothing_in_list)
+
+
+a = making_big_list()
+# print(client_start('Dior'))

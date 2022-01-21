@@ -21,16 +21,19 @@ from aiogram import Bot, types
 from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 import text
 ######################################################
-start = types.ReplyKeyboardMarkup(resize_keyboard=True) # СОЗДАЕМ ВООБЩЕ ОСНОВУ ДЛЯ КНОПОК
-
+# start = types.ReplyKeyboardMarkup(resize_keyboard=True) # СОЗДАЕМ ВООБЩЕ ОСНОВУ ДЛЯ КНОПОК
+keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
 info = types.KeyboardButton("Информация")            # ДОБАВЛЯЕМ КНОПКУ ИНФОРМАЦИИ
-stats = types.KeyboardButton("Статистика")            # ДОБАВЛЯЕМ КНОПКУ СТАТИСТИКИ
 search_item = types.KeyboardButton(text.search_button)
-stats = InlineKeyboardMarkup()    # СОЗДАЁМ ОСНОВУ ДЛЯ ИНЛАЙН КНОПКИ
-stats.add(InlineKeyboardButton(f'Да', callback_data = 'join')) # СОЗДАЁМ КНОПКУ И КАЛБЭК К НЕЙ
-stats.add(InlineKeyboardButton(f'Нет', callback_data = 'cancle')) # СОЗДАЁМ КНОПКУ И КАЛБЭК К НЕЙ
+about_bot_button = KeyboardButton(text.about_bot_button_text)
+
+keyboard.add(text.search_button).add(about_bot_button).add(text.mistake_button)
+
+privacy_buttons = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+privacy_agree = types.KeyboardButton('Да')
+privacy_disagree = types.KeyboardButton('Нет')
+privacy_buttons.add('Да').add('Нет')
 
 cancel_buttons = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
 cancel_buttons.add(KeyboardButton(text.cancel_button_text))
 
-start.add(stats, info, search_item) #ДОБАВЛЯЕМ ИХ В БОТА
